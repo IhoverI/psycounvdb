@@ -34,5 +34,5 @@ def lookup(code):
 
     Raise `!KeyError` if the code is not found.
     """
-    from psycounvdb._psycopg import sqlstate_errors   # avoid circular import
+    from psycounvdb._psycounvdb import sqlstate_errors   # avoid circular import
     return sqlstate_errors[code]

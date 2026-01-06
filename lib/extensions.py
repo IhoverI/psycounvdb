@@ -35,19 +35,19 @@ This module holds all the extensions to the DBAPI-2.0 provided by psycopg.
 
 import re as _re
 
-from psycounvdb._psycopg import (                             # noqa
+from psycounvdb._psycounvdb import (                             # noqa
     BINARYARRAY, BOOLEAN, BOOLEANARRAY, BYTES, BYTESARRAY, DATE, DATEARRAY,
     DATETIMEARRAY, DECIMAL, DECIMALARRAY, FLOAT, FLOATARRAY, INTEGER,
     INTEGERARRAY, INTERVAL, INTERVALARRAY, LONGINTEGER, LONGINTEGERARRAY,
     ROWIDARRAY, STRINGARRAY, TIME, TIMEARRAY, UNICODE, UNICODEARRAY,
     AsIs, Binary, Boolean, Float, Int, QuotedString, )
 
-from psycounvdb._psycopg import (                         # noqa
+from psycounvdb._psycounvdb import (                         # noqa
     PYDATE, PYDATETIME, PYDATETIMETZ, PYINTERVAL, PYTIME, PYDATEARRAY,
     PYDATETIMEARRAY, PYDATETIMETZARRAY, PYINTERVALARRAY, PYTIMEARRAY,
     DateFromPy, TimeFromPy, TimestampFromPy, IntervalFromPy, )
 
-from psycounvdb._psycopg import (                             # noqa
+from psycounvdb._psycounvdb import (                             # noqa
     adapt, adapters, encodings, connection, cursor,
     lobject, Xid, libpq_version, parse_dsn, quote_ident,
     string_types, binary_types, new_type, new_array_type, register_type,

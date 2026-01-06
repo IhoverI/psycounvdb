@@ -39,16 +39,16 @@ Homepage: https://psycopg.org/
 # FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 # License for more details.
 
-# Import modules needed by _psycopg to allow tools like py2exe to do
+# Import modules needed by _psycounvdb to allow tools like py2exe to do
 # their work without bothering about the module dependencies.
 
-# Note: the first internal import should be _psycopg, otherwise the real cause
+# Note: the first internal import should be _psycounvdb, otherwise the real cause
 # of a failed loading of the C module may get hidden, see
 # https://archives.postgresql.org/psycopg/2011-02/msg00044.php
 
 # Import the DBAPI-2.0 stuff into top-level module.
 
-from psycounvdb._psycopg import (                     # noqa
+from psycounvdb._psycounvdb import (                     # noqa
     BINARY, NUMBER, STRING, DATETIME, ROWID,
 
     Binary, Date, Time, Timestamp,
@@ -72,7 +72,7 @@ _ext.register_adapter(type(None), _ext.NoneAdapter)
 # This way a new class is registered for each sub-interpreter.
 # See ticket #52
 from decimal import Decimal                         # noqa
-from psycounvdb._psycopg import Decimal as Adapter    # noqa
+from psycounvdb._psycounvdb import Decimal as Adapter    # noqa
 _ext.register_adapter(Decimal, Adapter)
 del Decimal, Adapter
 

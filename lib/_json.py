@@ -30,8 +30,8 @@ extensions importing register_json from extras.
 
 import json
 
-from psycounvdb._psycopg import ISQLQuote, QuotedString
-from psycounvdb._psycopg import new_type, new_array_type, register_type
+from psycounvdb._psycounvdb import ISQLQuote, QuotedString
+from psycounvdb._psycounvdb import new_type, new_array_type, register_type
 
 
 # oids from PostgreSQL 9.2

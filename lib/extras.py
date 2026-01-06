@@ -40,7 +40,7 @@ from .extensions import connection as _connection
 from .extensions import adapt as _A, quote_ident
 from functools import lru_cache
 
-from psycounvdb._psycopg import (                             # noqa
+from psycounvdb._psycounvdb import (                             # noqa
     REPLICATION_PHYSICAL, REPLICATION_LOGICAL,
     ReplicationConnection as _replicationConnection,
     ReplicationCursor as _replicationCursor,

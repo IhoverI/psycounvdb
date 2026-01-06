@@ -971,7 +971,7 @@ static PyMethodDef psycopgMethods[] = {
 
 static struct PyModuleDef psycopgmodule = {
         PyModuleDef_HEAD_INIT,
-        "_psycopg",
+        "_psycounvdb",
         NULL,
         -1,
         psycopgMethods,
@@ -985,7 +985,7 @@ static struct PyModuleDef psycopgmodule = {
 #define PyMODINIT_FUNC void
 #endif
 PyMODINIT_FUNC
-INIT_MODULE(_psycopg)(void)
+INIT_MODULE(_psycounvdb)(void)
 {
     PyObject *module = NULL;
 

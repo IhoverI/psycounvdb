@@ -27,7 +27,7 @@
 
 import re
 
-from psycounvdb._psycopg import ProgrammingError, InterfaceError
+from psycounvdb._psycounvdb import ProgrammingError, InterfaceError
 from psycounvdb.extensions import ISQLQuote, adapt, register_adapter
 from psycounvdb.extensions import new_type, new_array_type, register_type
 

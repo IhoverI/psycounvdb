@@ -12,7 +12,7 @@ import tempfile
 import zipfile
 
 # 配置
-PACKAGE_ZIP = "dist/psycounvdb-2.9.11-py38_py314-linux_x86_64.zip"
+PACKAGE_ZIP = "dist/psycounvdb-2.9.11-linux-x86_64-python3.8~3.14.zip"
 PYENV_ROOT = os.path.expanduser("~/.pyenv")
 
 # 数据库配置
