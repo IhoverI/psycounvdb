@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [manylinux]
-        pyver: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
+        pyver: [cp38, cp39, cp310, cp311, cp312, cp313]
 
     steps:
       - name: Checkout repos
@@ -40,7 +40,6 @@ jobs:
         env:
           CIBW_BUILD: ${{matrix.pyver}}-${{matrix.platform}}_x86_64
           CIBW_ARCHS_LINUX: x86_64
-          CIBW_PRERELEASE_PYTHONS: "1"
           CIBW_BEFORE_ALL_LINUX: ./scripts/build/wheel_linux_before_all.sh
           CIBW_REPAIR_WHEEL_COMMAND: >-
             ./scripts/build/strip_wheel.sh {wheel}
@@ -63,7 +62,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [manylinux]
-        pyver: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
+        pyver: [cp38, cp39, cp310, cp311, cp312, cp313]
 
     steps:
       - name: Checkout repos
@@ -83,7 +82,6 @@ jobs:
         env:
           CIBW_BUILD: ${{matrix.pyver}}-${{matrix.platform}}_aarch64
           CIBW_ARCHS_LINUX: aarch64
-          CIBW_PRERELEASE_PYTHONS: "1"
           CIBW_BEFORE_ALL_LINUX: ./scripts/build/wheel_linux_before_all.sh
           CIBW_REPAIR_WHEEL_COMMAND: >-
             ./scripts/build/strip_wheel.sh {wheel}
@@ -105,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pyver: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
+        pyver: [cp38, cp39, cp310, cp311, cp312, cp313]
 
     defaults:
       run:
@@ -134,7 +132,6 @@ jobs:
           VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
           CIBW_BUILD: ${{matrix.pyver}}-win_amd64
           CIBW_ARCHS_WINDOWS: AMD64
-          CIBW_PRERELEASE_PYTHONS: "1"
           CIBW_BEFORE_BUILD_WINDOWS: '.\scripts\build\wheel_win32_before_build.bat'
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
             delvewheel repair -w {dest_dir}
@@ -148,7 +145,6 @@ jobs:
           name: windows-amd64-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
 
-  # 打包各平台的所有 Python 版本到一个 zip
   package:
     runs-on: ubuntu-latest
     needs:
@@ -170,19 +166,18 @@ jobs:
           # Linux x86_64
           mkdir -p pkg/linux-x86_64
           cp artifacts/linux-x86_64-*/*.whl pkg/linux-x86_64/
-          cd pkg/linux-x86_64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-x86_64-python3.8~3.14.zip" *.whl && cd ../..
+          cd pkg/linux-x86_64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-x86_64-python3.8~3.13.zip" *.whl && cd ../..
           
           # Linux aarch64
           mkdir -p pkg/linux-aarch64
           cp artifacts/linux-aarch64-*/*.whl pkg/linux-aarch64/
-          cd pkg/linux-aarch64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-aarch64-python3.8~3.14.zip" *.whl && cd ../..
+          cd pkg/linux-aarch64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-aarch64-python3.8~3.13.zip" *.whl && cd ../..
           
           # Windows amd64
           mkdir -p pkg/windows-amd64
           cp artifacts/windows-amd64-*/*.whl pkg/windows-amd64/
-          cd pkg/windows-amd64 && zip -r "../../dist/psycounvdb-${VERSION}-windows-amd64-python3.8~3.14.zip" *.whl && cd ../..
+          cd pkg/windows-amd64 && zip -r "../../dist/psycounvdb-${VERSION}-windows-amd64-python3.8~3.13.zip" *.whl && cd ../..
           
-          # 列出生成的包
           echo "Generated packages:"
           ls -la dist/
 
