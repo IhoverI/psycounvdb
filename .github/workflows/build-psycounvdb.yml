@@ -170,10 +170,11 @@ jobs:
           download_binary_libs() {
             local platform=$1
             local pip_platform=$2
+            local version=${3:-2.9.10}
             
-            echo "Downloading psycopg2-binary libs for $platform..."
+            echo "Downloading psycopg2-binary libs for $platform (version $version)..."
             mkdir -p "binary_libs/${platform}"
-            pip download psycopg2-binary==2.9.10 \
+            pip download "psycopg2-binary==${version}" \
               --python-version 38 \
               --platform "$pip_platform" \
               --only-binary=:all: \
@@ -190,9 +191,16 @@ jobs:
           }
           
           # Download binary libs for each platform
-          download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64"
-          download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64"
-          download_binary_libs "windows-amd64" "win_amd64"
+          download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64" "2.9.10"
+          download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64" "2.9.10"
+          download_binary_libs "windows-amd64" "win_amd64" "2.9.9"
+          
+          # Debug: show what was downloaded for Windows
+          echo "=== Windows binary download contents ==="
+          ls -la binary_libs/windows-amd64/ 2>/dev/null || echo "No windows binary dir"
+          if [ -d "binary_libs/windows-amd64/extracted" ]; then
+            find binary_libs/windows-amd64/extracted -type f -name "*.dll" 2>/dev/null
+          fi
           
           # Function to extract and package wheels
           package_platform() {
@@ -271,24 +279,23 @@ jobs:
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
             
-            # Get DLLs from psycopg2-binary (optimized, smaller)
-            if [ -d "binary_libs/windows-amd64/extracted/psycounvdb" ]; then
-              find binary_libs/windows-amd64/extracted/psycounvdb -name "*.dll" 2>/dev/null | while read f; do
-                cp "$f" "pkg/windows-amd64/psycounvdb/"
-              done
-              echo "Using psycopg2-binary DLLs (optimized)"
-            elif [ -d "binary_libs/windows-amd64/extracted/psycopg2" ]; then
-              find binary_libs/windows-amd64/extracted/psycopg2 -name "*.dll" 2>/dev/null | while read f; do
-                cp "$f" "pkg/windows-amd64/psycounvdb/"
-              done
-              echo "Using psycopg2-binary DLLs (optimized)"
-            fi
+            # First, get DLLs from psycopg2-binary
+            echo "Looking for DLLs in binary_libs/windows-amd64/extracted/"
+            ls -laR "binary_libs/windows-amd64/extracted/" 2>/dev/null || echo "Directory not found"
             
+            # Find and copy ALL DLLs from psycopg2-binary (search everywhere)
+            echo "Searching for all DLLs..."
+            find binary_libs/windows-amd64/extracted -name "*.dll" -type f 2>/dev/null | while read f; do
+              echo "Copying DLL: $f"
+              cp "$f" "pkg/windows-amd64/psycounvdb/"
+            done
+            
+            # Extract our wheels
             for whl in artifacts/windows-amd64-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
-              # Copy .pyd files only (not DLLs from our build)
+              # Copy .pyd files
               find tmp_extract/psycounvdb -name "*.pyd" 2>/dev/null | while read f; do
                 cp "$f" "pkg/windows-amd64/psycounvdb/"
               done
@@ -302,6 +309,9 @@ jobs:
               
               rm -rf tmp_extract
             done
+            
+            echo "Files in pkg/windows-amd64/psycounvdb/:"
+            ls -la "pkg/windows-amd64/psycounvdb/"
             
             cd "pkg/windows-amd64"
             PY_VERSIONS=$(ls psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cp([0-9]+).*/\1/' | sort -n | uniq)

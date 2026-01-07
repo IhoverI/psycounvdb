@@ -58,7 +58,7 @@ def extract_so_files(wheel_path, output_dir, python_version):
     """从 wheel 包中提取 .so 文件 - 已废弃，改用本地编译的"""
     pass  # 不再使用，改用 copy_local_so_files
 
-def copy_local_so_files(build_dir, output_dir):
+def copy_local_so_files(build_dir, output_dir, strip=True):
     """复制本地编译的 .so 文件"""
     psycounvdb_dir = output_dir / 'psycounvdb'
     psycounvdb_dir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,19 @@ def copy_local_so_files(build_dir, output_dir):
         for so_file in build_subdir.glob('psycounvdb/_psycounvdb.cpython-*.so'):
             dest = psycounvdb_dir / so_file.name
             shutil.copy(so_file, dest)
-            print(f"  复制本地 .so: {so_file.name}")
+            
+            # Strip 调试符号以减小文件大小
+            if strip:
+                try:
+                    orig_size = dest.stat().st_size
+                    subprocess.run(['strip', str(dest)], check=True, capture_output=True)
+                    new_size = dest.stat().st_size
+                    reduction = (1 - new_size / orig_size) * 100
+                    print(f"  复制并 strip: {so_file.name} ({orig_size//1024}KB -> {new_size//1024}KB, -{reduction:.0f}%)")
+                except (FileNotFoundError, subprocess.CalledProcessError) as e:
+                    print(f"  复制本地 .so: {so_file.name} (strip 失败: {e})")
+            else:
+                print(f"  复制本地 .so: {so_file.name}")
 
 def extract_libs(wheel_path, output_dir):
     """从 wheel 包中提取依赖库"""
