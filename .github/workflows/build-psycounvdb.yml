@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [manylinux]
-        pyver: [cp38, cp39, cp310, cp311, cp312, cp313]
+        pyver: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
 
     steps:
       - name: Checkout repos
@@ -36,7 +36,7 @@ jobs:
           key: libpq-${{ matrix.platform }}-x86_64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v2.22
         env:
           CIBW_BUILD: ${{matrix.pyver}}-${{matrix.platform}}_x86_64
           CIBW_ARCHS_LINUX: x86_64
@@ -50,6 +50,7 @@ jobs:
             LIBPQ_BUILD_PREFIX=/host/tmp/libpq.build
             PATH="$LIBPQ_BUILD_PREFIX/bin:$PATH"
             LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
 
       - uses: actions/upload-artifact@v4
         with:
@@ -62,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [manylinux]
-        pyver: [cp38, cp39, cp310, cp311, cp312, cp313]
+        pyver: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
 
     steps:
       - name: Checkout repos
@@ -78,7 +79,7 @@ jobs:
           key: libpq-${{ matrix.platform }}-aarch64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v2.22
         env:
           CIBW_BUILD: ${{matrix.pyver}}-${{matrix.platform}}_aarch64
           CIBW_ARCHS_LINUX: aarch64
@@ -92,6 +93,7 @@ jobs:
             LIBPQ_BUILD_PREFIX=/host/tmp/libpq.build
             PATH="$LIBPQ_BUILD_PREFIX/bin:$PATH"
             LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
 
       - uses: actions/upload-artifact@v4
         with:
@@ -103,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pyver: [cp38, cp39, cp310, cp311, cp312, cp313]
+        pyver: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
 
     defaults:
       run:
@@ -127,7 +129,7 @@ jobs:
             core.addPath(path.join(process.env.VCPKG_INSTALLATION_ROOT, 'installed/x64-windows-release/bin'));
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v2.22
         env:
           VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
           CIBW_BUILD: ${{matrix.pyver}}-win_amd64
@@ -166,17 +168,17 @@ jobs:
           # Linux x86_64
           mkdir -p pkg/linux-x86_64
           cp artifacts/linux-x86_64-*/*.whl pkg/linux-x86_64/
-          cd pkg/linux-x86_64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-x86_64-python3.8~3.13.zip" *.whl && cd ../..
+          cd pkg/linux-x86_64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-x86_64-python3.8~3.14.zip" *.whl && cd ../..
           
           # Linux aarch64
           mkdir -p pkg/linux-aarch64
           cp artifacts/linux-aarch64-*/*.whl pkg/linux-aarch64/
-          cd pkg/linux-aarch64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-aarch64-python3.8~3.13.zip" *.whl && cd ../..
+          cd pkg/linux-aarch64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-aarch64-python3.8~3.14.zip" *.whl && cd ../..
           
           # Windows amd64
           mkdir -p pkg/windows-amd64
           cp artifacts/windows-amd64-*/*.whl pkg/windows-amd64/
-          cd pkg/windows-amd64 && zip -r "../../dist/psycounvdb-${VERSION}-windows-amd64-python3.8~3.13.zip" *.whl && cd ../..
+          cd pkg/windows-amd64 && zip -r "../../dist/psycounvdb-${VERSION}-windows-amd64-python3.8~3.14.zip" *.whl && cd ../..
           
           echo "Generated packages:"
           ls -la dist/
