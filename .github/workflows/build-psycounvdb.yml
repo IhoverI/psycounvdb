@@ -134,7 +134,8 @@ jobs:
           CIBW_BEFORE_BUILD_WINDOWS: '.\scripts\build\wheel_win32_before_build.bat'
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
             delvewheel repair -w {dest_dir}
-            --no-mangle "libiconv-2.dll;libwinpthread-1.dll" {wheel}
+            --no-mangle "libiconv-2.dll;libwinpthread-1.dll"
+            --no-dll-version {wheel}
           CIBW_ENVIRONMENT_WINDOWS: >-
             PACKAGE_NAME=psycounvdb
 
@@ -267,9 +268,7 @@ jobs:
           }
           
           # Package Windows
-          # Note: delvewheel adds hash suffixes to DLLs to avoid conflicts
-          # Each Python version has its own set of DLLs with different hashes
-          # We need to keep all of them for the .pyd files to find their DLLs
+          # With --no-dll-version, all Python versions share the same DLLs (no hash suffix)
           package_windows() {
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
@@ -286,10 +285,10 @@ jobs:
                 cp "$f" "pkg/windows-amd64/psycounvdb/"
               done
               
-              # Copy .dll files to psycounvdb.libs/ (keep original names with hashes)
+              # Copy .dll files to psycounvdb.libs/ (no hash suffix, all versions share same DLLs)
               find tmp_extract -name "*.dll" -type f 2>/dev/null | while read f; do
                 basename=$(basename "$f")
-                # Skip if already exists (same DLL from different wheel)
+                # Only copy if not already exists (all versions have same DLLs now)
                 if [ ! -f "pkg/windows-amd64/psycounvdb.libs/$basename" ]; then
                   echo "Copying DLL: $basename"
                   cp "$f" "pkg/windows-amd64/psycounvdb.libs/"
@@ -313,7 +312,7 @@ jobs:
             
             # Check if we have DLLs
             DLL_COUNT=$(find pkg/windows-amd64/psycounvdb.libs -name "*.dll" | wc -l)
-            echo "Found $DLL_COUNT DLL files"
+            echo "Found $DLL_COUNT DLL files (should be 3: libpq, libssl, libcrypto)"
             
             cd "pkg/windows-amd64"
             PY_VERSIONS=$(ls psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cp([0-9]+).*/\1/' | sort -n | uniq)
