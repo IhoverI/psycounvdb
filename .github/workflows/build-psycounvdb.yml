@@ -166,92 +166,57 @@ jobs:
           VERSION="${{ env.VERSION }}"
           mkdir -p dist
           
-          # Download psycopg2-binary to get optimized libs
-          download_binary_libs() {
-            local platform=$1
-            local pip_platform=$2
-            local version=${3:-2.9.10}
+          # Function to extract and package Linux wheels
+          package_linux() {
+            local arch=$1
+            local output_name=$2
             
-            echo "Downloading psycopg2-binary libs for $platform (version $version)..."
-            mkdir -p "binary_libs/${platform}"
-            pip download "psycopg2-binary==${version}" \
-              --python-version 38 \
-              --platform "$pip_platform" \
-              --only-binary=:all: \
-              -d "binary_libs/${platform}" \
-              --no-deps || true
-            
-            # Extract libs from downloaded wheel
-            for whl in binary_libs/${platform}/*.whl; do
-              if [ -f "$whl" ]; then
-                unzip -o -q "$whl" -d "binary_libs/${platform}/extracted"
-                break
-              fi
-            done
-          }
-          
-          # Download binary libs for each platform (Linux only - Windows DLLs come from our wheels)
-          download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64" "2.9.10"
-          download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64" "2.9.10"
-          
-          # Function to extract and package wheels
-          package_platform() {
-            local platform=$1
-            local arch=$2
-            local output_name=$3
-            local binary_platform=$4
-            
-            echo "=== Packaging $platform-$arch ==="
-            mkdir -p "pkg/${platform}-${arch}/psycounvdb"
-            mkdir -p "pkg/${platform}-${arch}/psycounvdb_binary.libs"
+            echo "=== Packaging linux-${arch} ==="
+            mkdir -p "pkg/linux-${arch}/psycounvdb"
+            mkdir -p "pkg/linux-${arch}/psycounvdb_binary.libs"
             
             # Extract all wheels for this platform
-            for whl in artifacts/${platform}-${arch}-*/*.whl; do
+            for whl in artifacts/linux-${arch}-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
-              # Copy .so/.pyd files to psycounvdb/
-              find tmp_extract/psycounvdb -name "*.so" -o -name "*.pyd" 2>/dev/null | while read f; do
-                cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
+              # Show wheel contents for debugging
+              echo "Wheel contents:"
+              find tmp_extract -type f | head -30
+              
+              # Copy .so files to psycounvdb/
+              find tmp_extract/psycounvdb -name "*.so" -type f 2>/dev/null | while read f; do
+                echo "Copying SO: $f"
+                cp "$f" "pkg/linux-${arch}/psycounvdb/"
+              done
+              
+              # Copy libs from wheel (auditwheel puts them in psycounvdb_binary.libs/ or psycounvdb.libs/)
+              for libdir in "psycounvdb_binary.libs" "psycounvdb.libs"; do
+                if [ -d "tmp_extract/${libdir}" ]; then
+                  echo "Found libs in: ${libdir}"
+                  find "tmp_extract/${libdir}" -name "*.so*" -type f 2>/dev/null | while read f; do
+                    echo "Copying lib: $f"
+                    cp "$f" "pkg/linux-${arch}/psycounvdb_binary.libs/"
+                  done
+                fi
               done
               
               # Copy Python files (only once)
-              if [ ! -f "pkg/${platform}-${arch}/psycounvdb/__init__.py" ]; then
+              if [ ! -f "pkg/linux-${arch}/psycounvdb/__init__.py" ]; then
                 find tmp_extract/psycounvdb -name "*.py" 2>/dev/null | while read f; do
-                  cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
+                  cp "$f" "pkg/linux-${arch}/psycounvdb/"
                 done
               fi
               
               rm -rf tmp_extract
             done
             
-            # Copy libs from psycopg2-binary (optimized, smaller)
-            echo "Looking for libs in binary_libs/${binary_platform}/extracted/"
-            ls -la "binary_libs/${binary_platform}/extracted/" 2>/dev/null || echo "Directory not found"
-            
-            # Try different possible lib directory names
-            for libdir in "psycopg2_binary.libs" "psycopg2.libs" "psycopg2_binary-2.9.10.data/scripts/../psycopg2_binary.libs"; do
-              if [ -d "binary_libs/${binary_platform}/extracted/${libdir}" ]; then
-                echo "Found libs in: ${libdir}"
-                cp -v binary_libs/${binary_platform}/extracted/${libdir}/* \
-                  "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
-                break
-              fi
-            done
-            
-            # Also check for libs directly in psycopg2 or psycopg2_binary directory
-            find "binary_libs/${binary_platform}/extracted" -name "*.so*" -type f 2>/dev/null | while read f; do
-              if [[ "$f" == *".libs/"* ]]; then
-                cp -v "$f" "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
-              fi
-            done
-            
-            echo "Libs copied to psycounvdb_binary.libs:"
-            ls -la "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || echo "No libs found"
+            echo "Libs in psycounvdb_binary.libs:"
+            ls -la "pkg/linux-${arch}/psycounvdb_binary.libs/" 2>/dev/null || echo "No libs found"
             
             # Determine Python version range
-            cd "pkg/${platform}-${arch}"
-            PY_VERSIONS=$(ls psycounvdb/*.so psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cpython-([0-9]+).*/\1/' | sort -n | uniq)
+            cd "pkg/linux-${arch}"
+            PY_VERSIONS=$(ls psycounvdb/*.so 2>/dev/null | sed -E 's/.*cpython-([0-9]+).*/\1/' | sort -n | uniq)
             PY_MIN=$(echo "$PY_VERSIONS" | head -1)
             PY_MAX=$(echo "$PY_VERSIONS" | tail -1)
             PY_MIN_FMT="${PY_MIN:0:1}.${PY_MIN:1}"
@@ -270,7 +235,6 @@ jobs:
           package_windows() {
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
-            mkdir -p "pkg/windows-amd64/psycounvdb_binary.libs"
             
             # Extract our wheels - DLLs are included by delvewheel repair
             for whl in artifacts/windows-amd64-*/*.whl; do
@@ -279,7 +243,7 @@ jobs:
               
               # Show wheel contents for debugging
               echo "Wheel contents:"
-              find tmp_extract -type f | head -20
+              find tmp_extract -type f | head -30
               
               # Copy .pyd files
               find tmp_extract -name "*.pyd" -type f 2>/dev/null | while read f; do
@@ -326,8 +290,8 @@ jobs:
           }
           
           # Package each platform
-          package_platform "linux" "x86_64" "linux-x86_64" "linux-x86_64"
-          package_platform "linux" "aarch64" "linux-aarch64" "linux-aarch64"
+          package_linux "x86_64" "linux-x86_64"
+          package_linux "aarch64" "linux-aarch64"
           package_windows
           
           echo ""
