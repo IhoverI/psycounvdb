@@ -267,30 +267,33 @@ jobs:
           }
           
           # Package Windows
+          # Note: delvewheel adds hash suffixes to DLLs to avoid conflicts
+          # Each Python version has its own set of DLLs with different hashes
+          # We need to keep all of them for the .pyd files to find their DLLs
           package_windows() {
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
-            mkdir -p "pkg/windows-amd64/psycounvdb_binary.libs"
+            mkdir -p "pkg/windows-amd64/psycounvdb.libs"
             
             # Extract our wheels - DLLs are included by delvewheel repair
             for whl in artifacts/windows-amd64-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
-              # Show wheel contents for debugging
-              echo "Wheel contents:"
-              find tmp_extract -type f | head -20
-              
-              # Copy .pyd files
+              # Copy .pyd files to psycounvdb/
               find tmp_extract -name "*.pyd" -type f 2>/dev/null | while read f; do
                 echo "Copying PYD: $f"
                 cp "$f" "pkg/windows-amd64/psycounvdb/"
               done
               
-              # Copy .dll files (delvewheel puts them in psycounvdb/ or psycounvdb.libs/)
+              # Copy .dll files to psycounvdb.libs/ (keep original names with hashes)
               find tmp_extract -name "*.dll" -type f 2>/dev/null | while read f; do
-                echo "Copying DLL: $f"
-                cp "$f" "pkg/windows-amd64/psycounvdb/"
+                basename=$(basename "$f")
+                # Skip if already exists (same DLL from different wheel)
+                if [ ! -f "pkg/windows-amd64/psycounvdb.libs/$basename" ]; then
+                  echo "Copying DLL: $basename"
+                  cp "$f" "pkg/windows-amd64/psycounvdb.libs/"
+                fi
               done
               
               # Copy Python files (only once)
@@ -305,9 +308,11 @@ jobs:
             
             echo "Files in pkg/windows-amd64/psycounvdb/:"
             ls -la "pkg/windows-amd64/psycounvdb/"
+            echo "Files in pkg/windows-amd64/psycounvdb.libs/:"
+            ls -la "pkg/windows-amd64/psycounvdb.libs/"
             
             # Check if we have DLLs
-            DLL_COUNT=$(find pkg/windows-amd64/psycounvdb -name "*.dll" | wc -l)
+            DLL_COUNT=$(find pkg/windows-amd64/psycounvdb.libs -name "*.dll" | wc -l)
             echo "Found $DLL_COUNT DLL files"
             
             cd "pkg/windows-amd64"
@@ -318,7 +323,7 @@ jobs:
             PY_MAX_FMT="${PY_MAX:0:1}.${PY_MAX:1}"
             
             ZIP_NAME="psycounvdb-${{ env.VERSION }}-windows-amd64-python${PY_MIN_FMT}~${PY_MAX_FMT}.zip"
-            zip -r "../../dist/${ZIP_NAME}" psycounvdb
+            zip -r "../../dist/${ZIP_NAME}" psycounvdb psycounvdb.libs
             cd ../..
             
             echo "Created: dist/${ZIP_NAME}"
