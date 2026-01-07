@@ -58,7 +58,7 @@ jobs:
           path: ./wheelhouse/*.whl
 
   linux-aarch64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       matrix:
@@ -68,9 +68,6 @@ jobs:
     steps:
       - name: Checkout repos
         uses: actions/checkout@v4
-
-      - name: Set up QEMU for multi-arch build
-        uses: docker/setup-qemu-action@v3
 
       - name: Cache libpq build
         uses: actions/cache@v4
@@ -141,8 +138,7 @@ jobs:
           CIBW_ENVIRONMENT_WINDOWS: >-
             PACKAGE_NAME=psycounvdb
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: windows-amd64-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
@@ -165,22 +161,67 @@ jobs:
           VERSION="${{ env.VERSION }}"
           mkdir -p dist
           
-          # Linux x86_64
-          mkdir -p pkg/linux-x86_64
-          cp artifacts/linux-x86_64-*/*.whl pkg/linux-x86_64/
-          cd pkg/linux-x86_64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-x86_64-python3.8~3.13.zip" *.whl && cd ../..
+          # Function to extract and package wheels
+          package_platform() {
+            local platform=$1
+            local arch=$2
+            local output_name=$3
+            
+            echo "=== Packaging $platform-$arch ==="
+            mkdir -p "pkg/${platform}-${arch}/psycounvdb"
+            mkdir -p "pkg/${platform}-${arch}/psycounvdb_binary.libs"
+            
+            # Extract all wheels for this platform
+            for whl in artifacts/${platform}-${arch}-*/*.whl; do
+              echo "Extracting: $whl"
+              unzip -o -q "$whl" -d "tmp_extract"
+              
+              # Copy .so/.pyd files to psycounvdb/
+              find tmp_extract/psycounvdb -name "*.so" -o -name "*.pyd" | while read f; do
+                cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
+              done
+              
+              # Copy Python files (only once)
+              if [ ! -f "pkg/${platform}-${arch}/psycounvdb/__init__.py" ]; then
+                find tmp_extract/psycounvdb -name "*.py" | while read f; do
+                  cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
+                done
+              fi
+              
+              # Copy libs
+              if [ -d "tmp_extract/psycounvdb.libs" ]; then
+                cp -n tmp_extract/psycounvdb.libs/* "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
+              fi
+              if [ -d "tmp_extract/psycounvdb_binary.libs" ]; then
+                cp -n tmp_extract/psycounvdb_binary.libs/* "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
+              fi
+              
+              rm -rf tmp_extract
+            done
+            
+            # Determine Python version range
+            cd "pkg/${platform}-${arch}"
+            PY_VERSIONS=$(ls psycounvdb/*.so psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cpython-([0-9]+).*/\1/' | sort -n | uniq)
+            PY_MIN=$(echo "$PY_VERSIONS" | head -1)
+            PY_MAX=$(echo "$PY_VERSIONS" | tail -1)
+            PY_MIN_FMT="${PY_MIN:0:1}.${PY_MIN:1}"
+            PY_MAX_FMT="${PY_MAX:0:1}.${PY_MAX:1}"
+            
+            # Create zip
+            ZIP_NAME="psycounvdb-${VERSION}-${output_name}-python${PY_MIN_FMT}~${PY_MAX_FMT}.zip"
+            zip -r "../../dist/${ZIP_NAME}" psycounvdb psycounvdb_binary.libs
+            cd ../..
+            
+            echo "Created: dist/${ZIP_NAME}"
+          }
           
-          # Linux aarch64
-          mkdir -p pkg/linux-aarch64
-          cp artifacts/linux-aarch64-*/*.whl pkg/linux-aarch64/
-          cd pkg/linux-aarch64 && zip -r "../../dist/psycounvdb-${VERSION}-linux-aarch64-python3.8~3.13.zip" *.whl && cd ../..
+          # Package each platform
+          package_platform "linux" "x86_64" "linux-x86_64"
+          package_platform "linux" "aarch64" "linux-aarch64"
+          package_platform "windows" "amd64" "windows-amd64"
           
-          # Windows amd64
-          mkdir -p pkg/windows-amd64
-          cp artifacts/windows-amd64-*/*.whl pkg/windows-amd64/
-          cd pkg/windows-amd64 && zip -r "../../dist/psycounvdb-${VERSION}-windows-amd64-python3.8~3.13.zip" *.whl && cd ../..
-          
-          echo "Generated packages:"
+          echo ""
+          echo "=== Generated packages ==="
           ls -la dist/
 
       - name: Upload packaged artifacts
