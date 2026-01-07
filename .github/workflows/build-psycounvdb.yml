@@ -156,16 +156,49 @@ jobs:
         with:
           path: artifacts
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Package by platform
         run: |
           VERSION="${{ env.VERSION }}"
           mkdir -p dist
+          
+          # Download psycopg2-binary to get optimized libs
+          download_binary_libs() {
+            local platform=$1
+            local pip_platform=$2
+            
+            echo "Downloading psycopg2-binary libs for $platform..."
+            mkdir -p "binary_libs/${platform}"
+            pip download psycopg2-binary==2.9.10 \
+              --python-version 38 \
+              --platform "$pip_platform" \
+              --only-binary=:all: \
+              -d "binary_libs/${platform}" \
+              --no-deps || true
+            
+            # Extract libs from downloaded wheel
+            for whl in binary_libs/${platform}/*.whl; do
+              if [ -f "$whl" ]; then
+                unzip -o -q "$whl" -d "binary_libs/${platform}/extracted"
+                break
+              fi
+            done
+          }
+          
+          # Download binary libs for each platform
+          download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64"
+          download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64"
           
           # Function to extract and package wheels
           package_platform() {
             local platform=$1
             local arch=$2
             local output_name=$3
+            local binary_platform=$4
             
             echo "=== Packaging $platform-$arch ==="
             mkdir -p "pkg/${platform}-${arch}/psycounvdb"
@@ -177,27 +210,30 @@ jobs:
               unzip -o -q "$whl" -d "tmp_extract"
               
               # Copy .so/.pyd files to psycounvdb/
-              find tmp_extract/psycounvdb -name "*.so" -o -name "*.pyd" | while read f; do
+              find tmp_extract/psycounvdb -name "*.so" -o -name "*.pyd" 2>/dev/null | while read f; do
                 cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
               done
               
               # Copy Python files (only once)
               if [ ! -f "pkg/${platform}-${arch}/psycounvdb/__init__.py" ]; then
-                find tmp_extract/psycounvdb -name "*.py" | while read f; do
+                find tmp_extract/psycounvdb -name "*.py" 2>/dev/null | while read f; do
                   cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
                 done
               fi
               
-              # Copy libs
-              if [ -d "tmp_extract/psycounvdb.libs" ]; then
-                cp -n tmp_extract/psycounvdb.libs/* "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
-              fi
-              if [ -d "tmp_extract/psycounvdb_binary.libs" ]; then
-                cp -n tmp_extract/psycounvdb_binary.libs/* "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
-              fi
-              
               rm -rf tmp_extract
             done
+            
+            # Copy libs from psycopg2-binary (optimized, smaller)
+            if [ -d "binary_libs/${binary_platform}/extracted/psycopg2_binary.libs" ]; then
+              cp binary_libs/${binary_platform}/extracted/psycopg2_binary.libs/* \
+                "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
+              echo "Using psycopg2-binary libs (optimized)"
+            elif [ -d "binary_libs/${binary_platform}/extracted/psycopg2.libs" ]; then
+              cp binary_libs/${binary_platform}/extracted/psycopg2.libs/* \
+                "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
+              echo "Using psycopg2-binary libs (optimized)"
+            fi
             
             # Determine Python version range
             cd "pkg/${platform}-${arch}"
@@ -213,16 +249,61 @@ jobs:
             cd ../..
             
             echo "Created: dist/${ZIP_NAME}"
+            ls -lh "dist/${ZIP_NAME}"
+          }
+          
+          # Package Windows (no binary libs needed, uses DLLs from wheel)
+          package_windows() {
+            echo "=== Packaging windows-amd64 ==="
+            mkdir -p "pkg/windows-amd64/psycounvdb"
+            
+            for whl in artifacts/windows-amd64-*/*.whl; do
+              echo "Extracting: $whl"
+              unzip -o -q "$whl" -d "tmp_extract"
+              
+              # Copy .pyd files
+              find tmp_extract/psycounvdb -name "*.pyd" 2>/dev/null | while read f; do
+                cp "$f" "pkg/windows-amd64/psycounvdb/"
+              done
+              
+              # Copy Python files (only once)
+              if [ ! -f "pkg/windows-amd64/psycounvdb/__init__.py" ]; then
+                find tmp_extract/psycounvdb -name "*.py" 2>/dev/null | while read f; do
+                  cp "$f" "pkg/windows-amd64/psycounvdb/"
+                done
+              fi
+              
+              # Copy DLLs
+              find tmp_extract -name "*.dll" 2>/dev/null | while read f; do
+                cp "$f" "pkg/windows-amd64/psycounvdb/"
+              done
+              
+              rm -rf tmp_extract
+            done
+            
+            cd "pkg/windows-amd64"
+            PY_VERSIONS=$(ls psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cp([0-9]+).*/\1/' | sort -n | uniq)
+            PY_MIN=$(echo "$PY_VERSIONS" | head -1)
+            PY_MAX=$(echo "$PY_VERSIONS" | tail -1)
+            PY_MIN_FMT="${PY_MIN:0:1}.${PY_MIN:1}"
+            PY_MAX_FMT="${PY_MAX:0:1}.${PY_MAX:1}"
+            
+            ZIP_NAME="psycounvdb-${{ env.VERSION }}-windows-amd64-python${PY_MIN_FMT}~${PY_MAX_FMT}.zip"
+            zip -r "../../dist/${ZIP_NAME}" psycounvdb
+            cd ../..
+            
+            echo "Created: dist/${ZIP_NAME}"
+            ls -lh "dist/${ZIP_NAME}"
           }
           
           # Package each platform
-          package_platform "linux" "x86_64" "linux-x86_64"
-          package_platform "linux" "aarch64" "linux-aarch64"
-          package_platform "windows" "amd64" "windows-amd64"
+          package_platform "linux" "x86_64" "linux-x86_64" "linux-x86_64"
+          package_platform "linux" "aarch64" "linux-aarch64" "linux-aarch64"
+          package_windows
           
           echo ""
           echo "=== Generated packages ==="
-          ls -la dist/
+          ls -lh dist/
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4
