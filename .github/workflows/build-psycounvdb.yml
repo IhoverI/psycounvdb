@@ -190,17 +190,9 @@ jobs:
             done
           }
           
-          # Download binary libs for each platform
+          # Download binary libs for each platform (Linux only - Windows DLLs come from our wheels)
           download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64" "2.9.10"
           download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64" "2.9.10"
-          download_binary_libs "windows-amd64" "win_amd64" "2.9.9"
-          
-          # Debug: show what was downloaded for Windows
-          echo "=== Windows binary download contents ==="
-          ls -la binary_libs/windows-amd64/ 2>/dev/null || echo "No windows binary dir"
-          if [ -d "binary_libs/windows-amd64/extracted" ]; then
-            find binary_libs/windows-amd64/extracted -type f -name "*.dll" 2>/dev/null
-          fi
           
           # Function to extract and package wheels
           package_platform() {
@@ -278,25 +270,26 @@ jobs:
           package_windows() {
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
+            mkdir -p "pkg/windows-amd64/psycounvdb_binary.libs"
             
-            # First, get DLLs from psycopg2-binary
-            echo "Looking for DLLs in binary_libs/windows-amd64/extracted/"
-            ls -laR "binary_libs/windows-amd64/extracted/" 2>/dev/null || echo "Directory not found"
-            
-            # Find and copy ALL DLLs from psycopg2-binary (search everywhere)
-            echo "Searching for all DLLs..."
-            find binary_libs/windows-amd64/extracted -name "*.dll" -type f 2>/dev/null | while read f; do
-              echo "Copying DLL: $f"
-              cp "$f" "pkg/windows-amd64/psycounvdb/"
-            done
-            
-            # Extract our wheels
+            # Extract our wheels - DLLs are included by delvewheel repair
             for whl in artifacts/windows-amd64-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
+              # Show wheel contents for debugging
+              echo "Wheel contents:"
+              find tmp_extract -type f | head -20
+              
               # Copy .pyd files
-              find tmp_extract/psycounvdb -name "*.pyd" 2>/dev/null | while read f; do
+              find tmp_extract -name "*.pyd" -type f 2>/dev/null | while read f; do
+                echo "Copying PYD: $f"
+                cp "$f" "pkg/windows-amd64/psycounvdb/"
+              done
+              
+              # Copy .dll files (delvewheel puts them in psycounvdb/ or psycounvdb.libs/)
+              find tmp_extract -name "*.dll" -type f 2>/dev/null | while read f; do
+                echo "Copying DLL: $f"
                 cp "$f" "pkg/windows-amd64/psycounvdb/"
               done
               
@@ -312,6 +305,10 @@ jobs:
             
             echo "Files in pkg/windows-amd64/psycounvdb/:"
             ls -la "pkg/windows-amd64/psycounvdb/"
+            
+            # Check if we have DLLs
+            DLL_COUNT=$(find pkg/windows-amd64/psycounvdb -name "*.dll" | wc -l)
+            echo "Found $DLL_COUNT DLL files"
             
             cd "pkg/windows-amd64"
             PY_VERSIONS=$(ls psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cp([0-9]+).*/\1/' | sort -n | uniq)
