@@ -17,6 +17,7 @@ env:
   VERSION: "2.9.11"
 
 jobs:
+  # manylinux_2_28 (CentOS 8+, glibc 2.28)
   linux-x86_64:
     runs-on: ubuntu-latest
     strategy:
@@ -95,6 +96,88 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux-aarch64-${{matrix.pyver}}
+          path: ./wheelhouse/*.whl
+
+  # manylinux2014 (CentOS 7, glibc 2.17)
+  # Note: Python 3.13 requires glibc 2.28+, so not supported on manylinux2014
+  linux-x86_64-legacy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [manylinux]
+        pyver: [cp38, cp39, cp310, cp311, cp312]
+
+    steps:
+      - name: Checkout repos
+        uses: actions/checkout@v4
+
+      - name: Cache libpq build
+        uses: actions/cache@v4
+        with:
+          path: /tmp/libpq.build
+          key: libpq-${{ matrix.platform }}-x86_64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}-manylinux2014
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23
+        env:
+          CIBW_BUILD: ${{matrix.pyver}}-${{matrix.platform}}_x86_64
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_BEFORE_ALL_LINUX: ./scripts/build/wheel_linux_before_all.sh
+          CIBW_REPAIR_WHEEL_COMMAND: >-
+            ./scripts/build/strip_wheel.sh {wheel}
+            && auditwheel repair -w {dest_dir} {wheel}
+          CIBW_ENVIRONMENT_PASS_LINUX: LIBPQ_VERSION OPENSSL_VERSION
+          CIBW_ENVIRONMENT: >-
+            PACKAGE_NAME=psycounvdb
+            LIBPQ_BUILD_PREFIX=/host/tmp/libpq.build
+            PATH="$LIBPQ_BUILD_PREFIX/bin:$PATH"
+            LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64-legacy-${{matrix.pyver}}
+          path: ./wheelhouse/*.whl
+
+  linux-aarch64-legacy:
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [manylinux]
+        pyver: [cp38, cp39, cp310, cp311, cp312]
+
+    steps:
+      - name: Checkout repos
+        uses: actions/checkout@v4
+
+      - name: Cache libpq build
+        uses: actions/cache@v4
+        with:
+          path: /tmp/libpq.build
+          key: libpq-${{ matrix.platform }}-aarch64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}-manylinux2014
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23
+        env:
+          CIBW_BUILD: ${{matrix.pyver}}-${{matrix.platform}}_aarch64
+          CIBW_ARCHS_LINUX: aarch64
+          CIBW_BEFORE_ALL_LINUX: ./scripts/build/wheel_linux_before_all.sh
+          CIBW_REPAIR_WHEEL_COMMAND: >-
+            ./scripts/build/strip_wheel.sh {wheel}
+            && auditwheel repair -w {dest_dir} {wheel}
+          CIBW_ENVIRONMENT_PASS_LINUX: LIBPQ_VERSION OPENSSL_VERSION
+          CIBW_ENVIRONMENT: >-
+            PACKAGE_NAME=psycounvdb
+            LIBPQ_BUILD_PREFIX=/host/tmp/libpq.build
+            PATH="$LIBPQ_BUILD_PREFIX/bin:$PATH"
+            LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-aarch64-legacy-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
 
   windows-amd64:
@@ -207,6 +290,8 @@ jobs:
     needs:
       - linux-x86_64
       - linux-aarch64
+      - linux-x86_64-legacy
+      - linux-aarch64-legacy
       - windows-amd64
 
     steps:
@@ -255,29 +340,28 @@ jobs:
           
           # Function to extract and package wheels
           package_platform() {
-            local platform=$1
-            local arch=$2
-            local output_name=$3
-            local binary_platform=$4
+            local artifact_prefix=$1
+            local output_name=$2
+            local binary_platform=$3
             
-            echo "=== Packaging $platform-$arch ==="
-            mkdir -p "pkg/${platform}-${arch}/psycounvdb"
-            mkdir -p "pkg/${platform}-${arch}/psycounvdb_binary.libs"
+            echo "=== Packaging $output_name ==="
+            mkdir -p "pkg/${output_name}/psycounvdb"
+            mkdir -p "pkg/${output_name}/psycounvdb_binary.libs"
             
             # Extract all wheels for this platform
-            for whl in artifacts/${platform}-${arch}-*/*.whl; do
+            for whl in artifacts/${artifact_prefix}-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
               # Copy .so/.pyd files to psycounvdb/
               find tmp_extract/psycounvdb -name "*.so" -o -name "*.pyd" 2>/dev/null | while read f; do
-                cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
+                cp "$f" "pkg/${output_name}/psycounvdb/"
               done
               
               # Copy Python files (only once)
-              if [ ! -f "pkg/${platform}-${arch}/psycounvdb/__init__.py" ]; then
+              if [ ! -f "pkg/${output_name}/psycounvdb/__init__.py" ]; then
                 find tmp_extract/psycounvdb -name "*.py" 2>/dev/null | while read f; do
-                  cp "$f" "pkg/${platform}-${arch}/psycounvdb/"
+                  cp "$f" "pkg/${output_name}/psycounvdb/"
                 done
               fi
               
@@ -293,7 +377,7 @@ jobs:
               if [ -d "binary_libs/${binary_platform}/extracted/${libdir}" ]; then
                 echo "Found libs in: ${libdir}"
                 cp -v binary_libs/${binary_platform}/extracted/${libdir}/* \
-                  "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
+                  "pkg/${output_name}/psycounvdb_binary.libs/" 2>/dev/null || true
                 break
               fi
             done
@@ -301,15 +385,15 @@ jobs:
             # Also check for libs directly in psycopg2 or psycopg2_binary directory
             find "binary_libs/${binary_platform}/extracted" -name "*.so*" -type f 2>/dev/null | while read f; do
               if [[ "$f" == *".libs/"* ]]; then
-                cp -v "$f" "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || true
+                cp -v "$f" "pkg/${output_name}/psycounvdb_binary.libs/" 2>/dev/null || true
               fi
             done
             
             echo "Libs copied to psycounvdb_binary.libs:"
-            ls -la "pkg/${platform}-${arch}/psycounvdb_binary.libs/" 2>/dev/null || echo "No libs found"
+            ls -la "pkg/${output_name}/psycounvdb_binary.libs/" 2>/dev/null || echo "No libs found"
             
             # Determine Python version range
-            cd "pkg/${platform}-${arch}"
+            cd "pkg/${output_name}"
             PY_VERSIONS=$(ls psycounvdb/*.so psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cpython-([0-9]+).*/\1/' | sort -n | uniq)
             PY_MIN=$(echo "$PY_VERSIONS" | head -1)
             PY_MAX=$(echo "$PY_VERSIONS" | tail -1)
@@ -326,8 +410,6 @@ jobs:
           }
           
           # Package Windows
-          # We skip delvewheel to avoid hash suffixes on DLLs
-          # DLLs are collected from vcpkg and shared by all Python versions
           package_windows() {
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
@@ -404,8 +486,15 @@ jobs:
           }
           
           # Package each platform
-          package_platform "linux" "x86_64" "linux-x86_64" "linux-x86_64"
-          package_platform "linux" "aarch64" "linux-aarch64" "linux-aarch64"
+          # manylinux_2_28 (CentOS 8+)
+          package_platform "linux-x86_64" "linux-x86_64-glibc228" "linux-x86_64"
+          package_platform "linux-aarch64" "linux-aarch64-glibc228" "linux-aarch64"
+          
+          # manylinux2014 (CentOS 7)
+          package_platform "linux-x86_64-legacy" "linux-x86_64-glibc217" "linux-x86_64"
+          package_platform "linux-aarch64-legacy" "linux-aarch64-glibc217" "linux-aarch64"
+          
+          # Windows
           package_windows
           
           echo ""
