@@ -132,71 +132,8 @@ def fix_so_rpath(output_dir):
             print(f"  警告: 修复 rpath 失败: {e}")
 
 def create_init_py(output_dir):
-    """创建 __init__.py，支持从 psycounvdb_binary.libs 加载依赖"""
-    init_content = '''"""psycounvdb - PostgreSQL database adapter for Python
-
-This package provides a PostgreSQL database adapter compatible with psycopg2.
-"""
-
-import os
-import sys
-
-# 添加依赖库路径
-_libs_dir = os.path.join(os.path.dirname(__file__), '..', 'psycounvdb_binary.libs')
-if os.path.exists(_libs_dir):
-    if sys.platform == 'linux':
-        # Linux: 设置 LD_LIBRARY_PATH
-        _ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-        if _libs_dir not in _ld_path:
-            os.environ['LD_LIBRARY_PATH'] = _libs_dir + ':' + _ld_path
-    elif sys.platform == 'darwin':
-        # macOS: 设置 DYLD_LIBRARY_PATH
-        _dyld_path = os.environ.get('DYLD_LIBRARY_PATH', '')
-        if _libs_dir not in _dyld_path:
-            os.environ['DYLD_LIBRARY_PATH'] = _libs_dir + ':' + _dyld_path
-
-# 导入核心模块
-from psycounvdb._psycounvdb import (
-    BINARY, NUMBER, STRING, DATETIME, ROWID,
-    Binary, Date, Time, Timestamp,
-    DateFromTicks, TimeFromTicks, TimestampFromTicks,
-    Error, Warning, DataError, DatabaseError, ProgrammingError, IntegrityError,
-    InterfaceError, InternalError, NotSupportedError, OperationalError,
-    _connect, apilevel, threadsafety, paramstyle,
-    __version__, __libpq_version__,
-)
-
-# 注册默认适配器
-from psycounvdb import extensions as _ext
-_ext.register_adapter(tuple, _ext.SQL_IN)
-_ext.register_adapter(type(None), _ext.NoneAdapter)
-
-# 注册 Decimal 适配器
-from decimal import Decimal
-from psycounvdb._psycounvdb import Decimal as Adapter
-_ext.register_adapter(Decimal, Adapter)
-del Decimal, Adapter
-
-
-def connect(dsn=None, connection_factory=None, cursor_factory=None, **kwargs):
-    """Create a new database connection."""
-    kwasync = {}
-    if 'async' in kwargs:
-        kwasync['async'] = kwargs.pop('async')
-    if 'async_' in kwargs:
-        kwasync['async_'] = kwargs.pop('async_')
-
-    dsn = _ext.make_dsn(dsn, **kwargs)
-    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
-    if cursor_factory is not None:
-        conn.cursor_factory = cursor_factory
-
-    return conn
-'''
-    
-    init_path = output_dir / 'psycounvdb' / '__init__.py'
-    init_path.write_text(init_content)
-    print("  创建: psycounvdb/__init__.py")
+    """创建 __init__.py - 已废弃，直接从 lib/ 目录复制"""
+    pass  # 不再使用，直接从 lib/ 目录复制 __init__.py
 
 def main():
     script_dir = Path(__file__).parent

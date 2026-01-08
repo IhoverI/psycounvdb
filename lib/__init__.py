@@ -46,6 +46,34 @@ Homepage: https://psycopg.org/
 # of a failed loading of the C module may get hidden, see
 # https://archives.postgresql.org/psycopg/2011-02/msg00044.php
 
+# Add DLL/shared library search path before importing the C extension
+import os as _os
+import sys as _sys
+
+def _add_lib_path():
+    """Add the bundled library path for DLL/shared library loading."""
+    _pkg_dir = _os.path.dirname(__file__)
+    
+    # Try different possible lib directory names
+    # Windows: psycounvdb.libs (created by delvewheel)
+    # Linux: psycounvdb_binary.libs (from psycopg2-binary)
+    for _lib_dirname in ('psycounvdb.libs', 'psycounvdb_binary.libs'):
+        _libs_dir = _os.path.join(_pkg_dir, '..', _lib_dirname)
+        if _os.path.isdir(_libs_dir):
+            _libs_dir = _os.path.abspath(_libs_dir)
+            if _sys.platform == 'win32':
+                # Windows: use os.add_dll_directory (Python 3.8+)
+                if hasattr(_os, 'add_dll_directory'):
+                    _os.add_dll_directory(_libs_dir)
+                # Also add to PATH for older Python or fallback
+                _path = _os.environ.get('PATH', '')
+                if _libs_dir not in _path:
+                    _os.environ['PATH'] = _libs_dir + _os.pathsep + _path
+            break
+
+_add_lib_path()
+del _add_lib_path
+
 # Import the DBAPI-2.0 stuff into top-level module.
 
 from psycounvdb._psycounvdb import (                     # noqa
