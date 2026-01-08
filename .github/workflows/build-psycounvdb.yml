@@ -141,7 +141,7 @@ jobs:
           CIBW_BUILD: ${{matrix.pyver}}-win_amd64
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_BEFORE_BUILD_WINDOWS: '.\scripts\build\wheel_win32_before_build.bat'
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: 'echo "Skipping wheel repair"'
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: 'copy /Y "{wheel}" "{dest_dir}\\"'
           CIBW_ENVIRONMENT_PASS_WINDOWS: >-
             VCPKG_INSTALLATION_ROOT
             VCPKG_BINARY_SOURCES
