@@ -5,24 +5,14 @@ echo "=== Debug: Current directory ==="
 cd
 echo "=== Debug: VCPKG_INSTALLATION_ROOT = %VCPKG_INSTALLATION_ROOT% ==="
 
-echo "=== Installing build tools ==="
-pip install "delvewheel>=1.0.0" wheel
+echo "=== Installing build tools and dependencies ==="
+REM Install setuptools since we use --no-build-isolation
+pip install "delvewheel>=1.0.0" wheel setuptools
 if %ERRORLEVEL% NEQ 0 (
-    echo "Warning: delvewheel install failed, continuing anyway"
+    echo "Warning: build tools install failed, continuing anyway"
 )
 
-echo "=== Installing vcpkg packages ==="
-REM libpq in vcpkg automatically links with openssl, no need for feature flags
-echo "Running: vcpkg install libpq:x64-windows-release openssl:x64-windows-release"
-vcpkg install libpq:x64-windows-release openssl:x64-windows-release
-set VCPKG_RESULT=!ERRORLEVEL!
-echo "vcpkg install returned: %VCPKG_RESULT%"
-if !VCPKG_RESULT! NEQ 0 (
-    echo "ERROR: vcpkg install failed with code %VCPKG_RESULT%"
-    exit /b 1
-)
-
-echo "=== Checking vcpkg installed files ==="
+echo "=== Checking vcpkg installed files (should already be installed) ==="
 dir "%VCPKG_INSTALLATION_ROOT%\installed\x64-windows-release\lib\*pq*" 2>nul || echo "No libpq lib files found"
 dir "%VCPKG_INSTALLATION_ROOT%\installed\x64-windows-release\include\libpq*" 2>nul || echo "No libpq include dir found"
 
@@ -31,7 +21,6 @@ echo "Current directory for pip install:"
 cd
 dir scripts\build\pg_config_vcpkg_stub\ 2>nul || echo "pg_config_vcpkg_stub directory not found"
 
-REM Use pip instead of pipx (pipx may not be available in cibuildwheel environment)
 pip install scripts\build\pg_config_vcpkg_stub\
 if %ERRORLEVEL% NEQ 0 (
     echo "ERROR: pg_config stub install failed"

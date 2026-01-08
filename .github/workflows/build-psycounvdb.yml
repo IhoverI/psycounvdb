@@ -125,6 +125,15 @@ jobs:
             core.addPath(path.join(process.env.VCPKG_INSTALLATION_ROOT, 'installed/x64-windows-release/lib'));
             core.addPath(path.join(process.env.VCPKG_INSTALLATION_ROOT, 'installed/x64-windows-release/bin'));
 
+      - name: Install vcpkg packages (once for all Python versions)
+        shell: cmd
+        run: |
+          echo "=== Installing vcpkg packages ==="
+          vcpkg install libpq:x64-windows-release openssl:x64-windows-release
+          echo "=== Checking vcpkg installed files ==="
+          dir "%VCPKG_INSTALLATION_ROOT%\installed\x64-windows-release\lib\*pq*"
+          dir "%VCPKG_INSTALLATION_ROOT%\installed\x64-windows-release\bin\*.dll"
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.23
         env:
@@ -140,6 +149,7 @@ jobs:
             ACTIONS_RUNTIME_TOKEN
           CIBW_ENVIRONMENT_WINDOWS: >-
             PACKAGE_NAME=psycounvdb
+            PIP_NO_BUILD_ISOLATION=1
 
       - uses: actions/upload-artifact@v4
         with:
