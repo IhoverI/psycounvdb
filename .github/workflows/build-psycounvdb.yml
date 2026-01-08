@@ -132,10 +132,7 @@ jobs:
           CIBW_BUILD: ${{matrix.pyver}}-win_amd64
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_BEFORE_BUILD_WINDOWS: '.\scripts\build\wheel_win32_before_build.bat'
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
-            delvewheel repair -w {dest_dir}
-            --no-mangle "libiconv-2.dll;libwinpthread-1.dll"
-            --no-dll-version {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: 'echo "Skipping wheel repair"'
           CIBW_ENVIRONMENT_WINDOWS: >-
             PACKAGE_NAME=psycounvdb
 
@@ -143,6 +140,52 @@ jobs:
         with:
           name: windows-amd64-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
+
+      - name: Upload vcpkg DLLs (only once from first job)
+        if: matrix.pyver == 'cp38'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path vcpkg_dlls
+          $vcpkgBin = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin"
+          Write-Host "Looking for DLLs in: $vcpkgBin"
+          
+          # Copy required DLLs (libpq and openssl dependencies)
+          $requiredDlls = @(
+            "libpq.dll",
+            "libssl-3-x64.dll",
+            "libcrypto-3-x64.dll",
+            "libiconv-2.dll",
+            "libintl-9.dll"
+          )
+          
+          foreach ($dll in $requiredDlls) {
+            $src = Join-Path $vcpkgBin $dll
+            if (Test-Path $src) {
+              Copy-Item $src vcpkg_dlls/
+              Write-Host "Copied: $dll"
+            } else {
+              Write-Host "Not found: $dll"
+            }
+          }
+          
+          # Also copy any other DLLs that might be needed
+          Get-ChildItem "$vcpkgBin\*.dll" | ForEach-Object {
+            if (-not (Test-Path "vcpkg_dlls\$($_.Name)")) {
+              Copy-Item $_.FullName vcpkg_dlls/
+              Write-Host "Copied additional: $($_.Name)"
+            }
+          }
+          
+          Write-Host ""
+          Write-Host "DLLs collected from vcpkg:"
+          Get-ChildItem vcpkg_dlls
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.pyver == 'cp38'
+        with:
+          name: windows-vcpkg-dlls
+          path: vcpkg_dlls/
+          if-no-files-found: error
 
   package:
     runs-on: ubuntu-latest
@@ -268,13 +311,14 @@ jobs:
           }
           
           # Package Windows
-          # With --no-dll-version, all Python versions share the same DLLs (no hash suffix)
+          # We skip delvewheel to avoid hash suffixes on DLLs
+          # DLLs are collected from vcpkg and shared by all Python versions
           package_windows() {
             echo "=== Packaging windows-amd64 ==="
             mkdir -p "pkg/windows-amd64/psycounvdb"
             mkdir -p "pkg/windows-amd64/psycounvdb.libs"
             
-            # Extract our wheels - DLLs are included by delvewheel repair
+            # Extract wheels (no DLLs since we skipped delvewheel)
             for whl in artifacts/windows-amd64-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
@@ -283,16 +327,6 @@ jobs:
               find tmp_extract -name "*.pyd" -type f 2>/dev/null | while read f; do
                 echo "Copying PYD: $f"
                 cp "$f" "pkg/windows-amd64/psycounvdb/"
-              done
-              
-              # Copy .dll files to psycounvdb.libs/ (no hash suffix, all versions share same DLLs)
-              find tmp_extract -name "*.dll" -type f 2>/dev/null | while read f; do
-                basename=$(basename "$f")
-                # Only copy if not already exists (all versions have same DLLs now)
-                if [ ! -f "pkg/windows-amd64/psycounvdb.libs/$basename" ]; then
-                  echo "Copying DLL: $basename"
-                  cp "$f" "pkg/windows-amd64/psycounvdb.libs/"
-                fi
               done
               
               # Copy Python files (only once)
@@ -305,14 +339,39 @@ jobs:
               rm -rf tmp_extract
             done
             
+            # Copy DLLs from vcpkg artifact (shared by all Python versions)
+            echo "Copying DLLs from vcpkg artifact..."
+            echo "Available artifacts:"
+            ls -la artifacts/
+            
+            if [ -d "artifacts/windows-vcpkg-dlls" ]; then
+              echo "Found windows-vcpkg-dlls directory:"
+              ls -la artifacts/windows-vcpkg-dlls/
+              
+              # Copy all DLLs
+              find artifacts/windows-vcpkg-dlls -name "*.dll" -type f | while read f; do
+                basename=$(basename "$f")
+                echo "Copying DLL: $basename"
+                cp "$f" "pkg/windows-amd64/psycounvdb.libs/"
+              done
+            else
+              echo "ERROR: vcpkg DLLs artifact not found!"
+              exit 1
+            fi
+            
+            echo ""
             echo "Files in pkg/windows-amd64/psycounvdb/:"
             ls -la "pkg/windows-amd64/psycounvdb/"
+            echo ""
             echo "Files in pkg/windows-amd64/psycounvdb.libs/:"
-            ls -la "pkg/windows-amd64/psycounvdb.libs/"
+            ls -la "pkg/windows-amd64/psycounvdb.libs/" 2>/dev/null || echo "No DLLs found"
             
-            # Check if we have DLLs
-            DLL_COUNT=$(find pkg/windows-amd64/psycounvdb.libs -name "*.dll" | wc -l)
-            echo "Found $DLL_COUNT DLL files (should be 3: libpq, libssl, libcrypto)"
+            # Count files
+            PYD_COUNT=$(find pkg/windows-amd64/psycounvdb -name "*.pyd" 2>/dev/null | wc -l)
+            DLL_COUNT=$(find pkg/windows-amd64/psycounvdb.libs -name "*.dll" 2>/dev/null | wc -l)
+            echo ""
+            echo "Total PYD count: $PYD_COUNT (should be 6)"
+            echo "Total DLL count: $DLL_COUNT"
             
             cd "pkg/windows-amd64"
             PY_VERSIONS=$(ls psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cp([0-9]+).*/\1/' | sort -n | uniq)

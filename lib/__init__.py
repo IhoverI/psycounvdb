@@ -55,21 +55,26 @@ def _add_lib_path():
     _pkg_dir = _os.path.dirname(__file__)
     
     # Try different possible lib directory names
-    # Windows: psycounvdb.libs (created by delvewheel)
+    # Windows: psycounvdb.libs (from vcpkg DLLs)
     # Linux: psycounvdb_binary.libs (from psycopg2-binary)
-    for _lib_dirname in ('psycounvdb.libs', 'psycounvdb_binary.libs'):
+    _lib_dirnames = ['psycounvdb.libs', 'psycounvdb_binary.libs']
+    
+    for _lib_dirname in _lib_dirnames:
         _libs_dir = _os.path.join(_pkg_dir, '..', _lib_dirname)
         if _os.path.isdir(_libs_dir):
             _libs_dir = _os.path.abspath(_libs_dir)
             if _sys.platform == 'win32':
                 # Windows: use os.add_dll_directory (Python 3.8+)
                 if hasattr(_os, 'add_dll_directory'):
-                    _os.add_dll_directory(_libs_dir)
-                # Also add to PATH for older Python or fallback
+                    try:
+                        _os.add_dll_directory(_libs_dir)
+                    except OSError:
+                        pass  # Directory might not exist or be invalid
+                # Also add to PATH for fallback
                 _path = _os.environ.get('PATH', '')
                 if _libs_dir not in _path:
                     _os.environ['PATH'] = _libs_dir + _os.pathsep + _path
-            break
+            # Don't break - add all lib directories that exist
 
 _add_lib_path()
 del _add_lib_path
