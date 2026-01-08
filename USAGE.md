@@ -7,12 +7,12 @@ psycounvdb 是 psycopg2 的预编译二进制包，支持连接 PostgreSQL 兼�
 从 GitHub Actions 的 Artifacts 下载对应平台的 zip 包：
 
 ### Linux (CentOS 8+ / glibc 2.28+)
-- `psycounvdb-2.9.11-linux-x86_64-glibc228-python3.8~3.13.zip` - Linux x86_64
-- `psycounvdb-2.9.11-linux-aarch64-glibc228-python3.8~3.13.zip` - Linux ARM64
+- `psycounvdb-2.9.11-linux-x86_64-python3.8~3.13.zip` - Linux x86_64
+- `psycounvdb-2.9.11-linux-aarch64-python3.8~3.13.zip` - Linux ARM64
 
 ### Linux (CentOS 7 / glibc 2.17+)
-- `psycounvdb-2.9.11-linux-x86_64-glibc217-python3.8~3.12.zip` - Linux x86_64 (兼容 CentOS 7)
-- `psycounvdb-2.9.11-linux-aarch64-glibc217-python3.8~3.12.zip` - Linux ARM64 (兼容 CentOS 7)
+- `psycounvdb-2.9.11-linux-x86_64-centos7-python3.8~3.12.zip` - Linux x86_64 (兼容 CentOS 7)
+- `psycounvdb-2.9.11-linux-aarch64-centos7-python3.8~3.12.zip` - Linux ARM64 (兼容 CentOS 7)
 
 > 注意：Python 3.13 需要 glibc 2.28+，因此 CentOS 7 包不支持 Python 3.13
 

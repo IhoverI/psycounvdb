@@ -208,6 +208,14 @@ jobs:
             core.addPath(path.join(process.env.VCPKG_INSTALLATION_ROOT, 'installed/x64-windows-release/lib'));
             core.addPath(path.join(process.env.VCPKG_INSTALLATION_ROOT, 'installed/x64-windows-release/bin'));
 
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
+          key: vcpkg-windows-x64-libpq-openssl-v1
+
       - name: Install vcpkg packages (once for all Python versions)
         shell: cmd
         run: |
@@ -486,13 +494,13 @@ jobs:
           }
           
           # Package each platform
-          # manylinux_2_28 (CentOS 8+)
-          package_platform "linux-x86_64" "linux-x86_64-glibc228" "linux-x86_64"
-          package_platform "linux-aarch64" "linux-aarch64-glibc228" "linux-aarch64"
+          # manylinux_2_28 (CentOS 8+) - default
+          package_platform "linux-x86_64" "linux-x86_64" "linux-x86_64"
+          package_platform "linux-aarch64" "linux-aarch64" "linux-aarch64"
           
           # manylinux2014 (CentOS 7)
-          package_platform "linux-x86_64-legacy" "linux-x86_64-glibc217" "linux-x86_64"
-          package_platform "linux-aarch64-legacy" "linux-aarch64-glibc217" "linux-aarch64"
+          package_platform "linux-x86_64-legacy" "linux-x86_64-centos7" "linux-x86_64"
+          package_platform "linux-aarch64-legacy" "linux-aarch64-centos7" "linux-aarch64"
           
           # Windows
           package_windows
