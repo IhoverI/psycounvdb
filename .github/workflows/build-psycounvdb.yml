@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache libpq build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/libpq.build
           key: libpq-${{ matrix.platform }}-x86_64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}-manylinux_2_28
@@ -71,7 +71,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache libpq build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/libpq.build
           key: libpq-${{ matrix.platform }}-aarch64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}-manylinux_2_28
@@ -113,7 +113,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache libpq build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/libpq.build
           key: libpq-${{ matrix.platform }}-x86_64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}-manylinux2014
@@ -153,7 +153,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache libpq build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/libpq.build
           key: libpq-${{ matrix.platform }}-aarch64-${{ env.LIBPQ_VERSION }}-${{ env.OPENSSL_VERSION }}-manylinux2014
@@ -209,7 +209,7 @@ jobs:
             core.addPath(path.join(process.env.VCPKG_INSTALLATION_ROOT, 'installed/x64-windows-release/bin'));
 
       - name: Cache vcpkg packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
