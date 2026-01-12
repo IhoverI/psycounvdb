@@ -349,9 +349,10 @@ jobs:
           }
           
           # Download binary libs for each platform
-          # manylinux_2_28 (CentOS 8+)
-          download_binary_libs "linux-x86_64" "manylinux_2_28_x86_64"
-          download_binary_libs "linux-aarch64" "manylinux_2_28_aarch64"
+          # Note: psycopg2-binary only provides manylinux_2_17 wheels, which are compatible with manylinux_2_28
+          # manylinux_2_28 (CentOS 8+) - use manylinux_2_17 libs (backward compatible)
+          download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64"
+          download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64"
           # manylinux_2_17 (CentOS 7)
           download_binary_libs "linux-x86_64-centos7" "manylinux_2_17_x86_64"
           download_binary_libs "linux-aarch64-centos7" "manylinux_2_17_aarch64"
