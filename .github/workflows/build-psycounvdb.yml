@@ -53,7 +53,7 @@ jobs:
             LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-x86_64-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
@@ -93,7 +93,7 @@ jobs:
             LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-aarch64-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
@@ -135,7 +135,7 @@ jobs:
             LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-x86_64-legacy-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
@@ -175,7 +175,7 @@ jobs:
             LD_LIBRARY_PATH="$LIBPQ_BUILD_PREFIX/lib:$LIBPQ_BUILD_PREFIX/lib64"
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-aarch64-legacy-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
@@ -242,7 +242,7 @@ jobs:
             PACKAGE_NAME=psycounvdb
             PIP_NO_BUILD_ISOLATION=1
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows-amd64-${{matrix.pyver}}
           path: ./wheelhouse/*.whl
@@ -286,7 +286,7 @@ jobs:
           Write-Host "DLLs collected from vcpkg:"
           Get-ChildItem vcpkg_dlls
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: matrix.pyver == 'cp38'
         with:
           name: windows-vcpkg-dlls
@@ -496,7 +496,7 @@ jobs:
           ls -lh dist/
 
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: psycounvdb-all-platforms
           path: dist/*.zip
