@@ -348,14 +348,9 @@ jobs:
             done
           }
           
-          # Download binary libs for each platform
-          # Note: psycopg2-binary only provides manylinux_2_17 wheels, which are compatible with manylinux_2_28
-          # manylinux_2_28 (CentOS 8+) - use manylinux_2_17 libs (backward compatible)
+          # Download binary libs (manylinux_2_17 works for both CentOS 7 and 8)
           download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64"
           download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64"
-          # manylinux_2_17 (CentOS 7)
-          download_binary_libs "linux-x86_64-centos7" "manylinux_2_17_x86_64"
-          download_binary_libs "linux-aarch64-centos7" "manylinux_2_17_aarch64"
           
           # Function to package Linux platform
           package_platform() {
@@ -399,12 +394,25 @@ jobs:
             echo "Libs in psycounvdb.libs:"
             ls -la "pkg/${output_name}/psycounvdb.libs/"
             
-            # Fix RPATH to point to psycounvdb.libs
-            echo "Fixing RPATH in .so files..."
+            # Get the libpq filename from psycopg2-binary
+            BINARY_LIBPQ=$(ls "pkg/${output_name}/psycounvdb.libs/" | grep "^libpq-" | head -1)
+            echo "Binary libpq: $BINARY_LIBPQ"
+            
+            # Fix .so files: replace NEEDED entries and set RPATH
+            echo "Fixing .so files..."
             for so_file in pkg/${output_name}/psycounvdb/*.so; do
               if [ -f "$so_file" ]; then
-                patchelf --set-rpath '$ORIGIN/../psycounvdb.libs' "$so_file" 2>/dev/null || echo "patchelf failed for $so_file"
-                echo "Fixed RPATH: $(basename $so_file)"
+                # Get current libpq NEEDED entry
+                OUR_LIBPQ=$(patchelf --print-needed "$so_file" 2>/dev/null | grep "^libpq-" || true)
+                
+                if [ -n "$OUR_LIBPQ" ] && [ -n "$BINARY_LIBPQ" ] && [ "$OUR_LIBPQ" != "$BINARY_LIBPQ" ]; then
+                  echo "Replacing $OUR_LIBPQ -> $BINARY_LIBPQ in $(basename $so_file)"
+                  patchelf --replace-needed "$OUR_LIBPQ" "$BINARY_LIBPQ" "$so_file" 2>/dev/null || true
+                fi
+                
+                # Set RPATH
+                patchelf --set-rpath '$ORIGIN/../psycounvdb.libs' "$so_file" 2>/dev/null || true
+                echo "Fixed: $(basename $so_file)"
               fi
             done
             
@@ -479,8 +487,8 @@ jobs:
           # Package each platform
           package_platform "linux-x86_64" "linux-x86_64" "linux-x86_64"
           package_platform "linux-aarch64" "linux-aarch64" "linux-aarch64"
-          package_platform "linux-x86_64-legacy" "linux-x86_64-centos7" "linux-x86_64-centos7"
-          package_platform "linux-aarch64-legacy" "linux-aarch64-centos7" "linux-aarch64-centos7"
+          package_platform "linux-x86_64-legacy" "linux-x86_64-centos7" "linux-x86_64"
+          package_platform "linux-aarch64-legacy" "linux-aarch64-centos7" "linux-aarch64"
           package_windows
           
           echo ""
