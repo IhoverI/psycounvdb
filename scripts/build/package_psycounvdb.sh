@@ -43,10 +43,10 @@ if [ -n "$BINARY_WHEEL" ]; then
     mkdir -p "$BINARY_DIR"
     unzip -q "$BINARY_WHEEL" -d "$BINARY_DIR"
     
-    # 复制依赖库目录，重命名为 psycounvdb_binary.libs
+    # 复制依赖库目录，重命名为 psycounvdb.libs
     if [ -d "$BINARY_DIR/psycopg2_binary.libs" ]; then
-        cp -r "$BINARY_DIR/psycopg2_binary.libs" "${WORK_DIR}/package/psycounvdb_binary.libs"
-        echo "已复制依赖库到 psycounvdb_binary.libs"
+        cp -r "$BINARY_DIR/psycopg2_binary.libs" "${WORK_DIR}/package/psycounvdb.libs"
+        echo "已复制依赖库到 psycounvdb.libs"
     fi
 fi
 
@@ -57,7 +57,7 @@ rm -rf "${WORK_DIR}/package/"*.dist-info 2>/dev/null || true
 
 # 创建简单的 __init__.py 如果不存在
 if [ ! -f "${WORK_DIR}/package/psycounvdb/__init__.py" ]; then
-    echo "from psycounvdb._psycopg import *" > "${WORK_DIR}/package/psycounvdb/__init__.py"
+    echo "from psycounvdb._psycounvdb import *" > "${WORK_DIR}/package/psycounvdb/__init__.py"
 fi
 
 # 列出包内容
@@ -66,7 +66,7 @@ echo "包内容:"
 find "${WORK_DIR}/package" -type f | head -30
 
 # 确定 Python 版本范围
-PY_VERSIONS=$(find "${WORK_DIR}/package/psycounvdb" -name "_psycopg.cpython-*.so" | \
+PY_VERSIONS=$(find "${WORK_DIR}/package/psycounvdb" -name "_psycounvdb.cpython-*.so" | \
     sed 's/.*cpython-\([0-9]*\).*/\1/' | sort -n | uniq)
 PY_MIN=$(echo "$PY_VERSIONS" | head -1)
 PY_MAX=$(echo "$PY_VERSIONS" | tail -1)

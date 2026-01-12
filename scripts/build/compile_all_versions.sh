@@ -36,4 +36,4 @@ fi
 echo ""
 echo "=== 编译完成 ==="
 echo "生成的 .so 文件:"
-find build -name "_psycopg.cpython-*.so" -type f 2>/dev/null
+find build -name "_psycounvdb.cpython-*.so" -type f 2>/dev/null

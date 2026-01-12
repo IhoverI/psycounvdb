@@ -89,9 +89,9 @@ def extract_libs(wheel_path, output_dir):
             # 提取 psycopg2_binary.libs/ 目录
             if 'psycopg2_binary.libs/' in name or 'psycopg2.libs/' in name:
                 content = zf.read(name)
-                # 重命名为 psycounvdb_binary.libs/
-                new_name = name.replace('psycopg2_binary.libs/', 'psycounvdb_binary.libs/')
-                new_name = new_name.replace('psycopg2.libs/', 'psycounvdb_binary.libs/')
+                # 重命名为 psycounvdb.libs/
+                new_name = name.replace('psycopg2_binary.libs/', 'psycounvdb.libs/')
+                new_name = new_name.replace('psycopg2.libs/', 'psycounvdb.libs/')
                 output_path = output_dir / new_name
                 if name.endswith('/'):
                     output_path.mkdir(parents=True, exist_ok=True)
@@ -109,9 +109,9 @@ def copy_python_files(lib_dir, output_dir):
         print(f"  复制: psycounvdb/{py_file.name}")
 
 def fix_so_rpath(output_dir):
-    """修复 .so 文件的 rpath，指向 psycounvdb_binary.libs"""
+    """修复 .so 文件的 rpath，指向 psycounvdb.libs"""
     psycounvdb_dir = output_dir / 'psycounvdb'
-    libs_dir = output_dir / 'psycounvdb_binary.libs'
+    libs_dir = output_dir / 'psycounvdb.libs'
     
     if not libs_dir.exists():
         print("  警告: 没有找到依赖库目录")
@@ -121,7 +121,7 @@ def fix_so_rpath(output_dir):
         try:
             # 使用 patchelf 修改 rpath
             subprocess.run([
-                'patchelf', '--set-rpath', '$ORIGIN/../psycounvdb_binary.libs',
+                'patchelf', '--set-rpath', '$ORIGIN/../psycounvdb.libs',
                 str(so_file)
             ], check=True, capture_output=True)
             print(f"  修复 rpath: {so_file.name}")

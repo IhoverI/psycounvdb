@@ -313,20 +313,25 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install patchelf
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y patchelf
+
       - name: Package by platform
         run: |
           VERSION="${{ env.VERSION }}"
+          PSYCOPG2_BINARY_VERSION="2.9.10"
           mkdir -p dist
           
-          # Download psycopg2-binary to get optimized libs
+          # Download psycopg2-binary to get libs
           download_binary_libs() {
             local platform=$1
             local pip_platform=$2
-            local version=${3:-2.9.10}
             
-            echo "Downloading psycopg2-binary libs for $platform (version $version)..."
+            echo "Downloading psycopg2-binary libs for $platform..."
             mkdir -p "binary_libs/${platform}"
-            pip download "psycopg2-binary==${version}" \
+            pip download "psycopg2-binary==${PSYCOPG2_BINARY_VERSION}" \
               --python-version 38 \
               --platform "$pip_platform" \
               --only-binary=:all: \
@@ -336,17 +341,22 @@ jobs:
             # Extract libs from downloaded wheel
             for whl in binary_libs/${platform}/*.whl; do
               if [ -f "$whl" ]; then
+                echo "Extracting: $whl"
                 unzip -o -q "$whl" -d "binary_libs/${platform}/extracted"
                 break
               fi
             done
           }
           
-          # Download binary libs for each platform (Linux only - Windows DLLs come from our wheels)
-          download_binary_libs "linux-x86_64" "manylinux_2_17_x86_64" "2.9.10"
-          download_binary_libs "linux-aarch64" "manylinux_2_17_aarch64" "2.9.10"
+          # Download binary libs for each platform
+          # manylinux_2_28 (CentOS 8+)
+          download_binary_libs "linux-x86_64" "manylinux_2_28_x86_64"
+          download_binary_libs "linux-aarch64" "manylinux_2_28_aarch64"
+          # manylinux_2_17 (CentOS 7)
+          download_binary_libs "linux-x86_64-centos7" "manylinux_2_17_x86_64"
+          download_binary_libs "linux-aarch64-centos7" "manylinux_2_17_aarch64"
           
-          # Function to extract and package wheels
+          # Function to package Linux platform
           package_platform() {
             local artifact_prefix=$1
             local output_name=$2
@@ -354,15 +364,15 @@ jobs:
             
             echo "=== Packaging $output_name ==="
             mkdir -p "pkg/${output_name}/psycounvdb"
-            mkdir -p "pkg/${output_name}/psycounvdb_binary.libs"
+            mkdir -p "pkg/${output_name}/psycounvdb.libs"
             
             # Extract all wheels for this platform
             for whl in artifacts/${artifact_prefix}-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
-              # Copy .so/.pyd files to psycounvdb/
-              find tmp_extract/psycounvdb -name "*.so" -o -name "*.pyd" 2>/dev/null | while read f; do
+              # Copy .so files to psycounvdb/
+              find tmp_extract/psycounvdb -name "*.so" 2>/dev/null | while read f; do
                 cp "$f" "pkg/${output_name}/psycounvdb/"
               done
               
@@ -376,33 +386,30 @@ jobs:
               rm -rf tmp_extract
             done
             
-            # Copy libs from psycopg2-binary (optimized, smaller)
-            echo "Looking for libs in binary_libs/${binary_platform}/extracted/"
-            ls -la "binary_libs/${binary_platform}/extracted/" 2>/dev/null || echo "Directory not found"
+            # Copy libs from psycopg2-binary
+            if [ -d "binary_libs/${binary_platform}/extracted/psycopg2_binary.libs" ]; then
+              echo "Copying libs from psycopg2-binary..."
+              cp -v binary_libs/${binary_platform}/extracted/psycopg2_binary.libs/* \
+                "pkg/${output_name}/psycounvdb.libs/"
+            else
+              echo "WARNING: psycopg2_binary.libs not found"
+            fi
             
-            # Try different possible lib directory names
-            for libdir in "psycopg2_binary.libs" "psycopg2.libs" "psycopg2_binary-2.9.10.data/scripts/../psycopg2_binary.libs"; do
-              if [ -d "binary_libs/${binary_platform}/extracted/${libdir}" ]; then
-                echo "Found libs in: ${libdir}"
-                cp -v binary_libs/${binary_platform}/extracted/${libdir}/* \
-                  "pkg/${output_name}/psycounvdb_binary.libs/" 2>/dev/null || true
-                break
+            echo "Libs in psycounvdb.libs:"
+            ls -la "pkg/${output_name}/psycounvdb.libs/"
+            
+            # Fix RPATH to point to psycounvdb.libs
+            echo "Fixing RPATH in .so files..."
+            for so_file in pkg/${output_name}/psycounvdb/*.so; do
+              if [ -f "$so_file" ]; then
+                patchelf --set-rpath '$ORIGIN/../psycounvdb.libs' "$so_file" 2>/dev/null || echo "patchelf failed for $so_file"
+                echo "Fixed RPATH: $(basename $so_file)"
               fi
             done
-            
-            # Also check for libs directly in psycopg2 or psycopg2_binary directory
-            find "binary_libs/${binary_platform}/extracted" -name "*.so*" -type f 2>/dev/null | while read f; do
-              if [[ "$f" == *".libs/"* ]]; then
-                cp -v "$f" "pkg/${output_name}/psycounvdb_binary.libs/" 2>/dev/null || true
-              fi
-            done
-            
-            echo "Libs copied to psycounvdb_binary.libs:"
-            ls -la "pkg/${output_name}/psycounvdb_binary.libs/" 2>/dev/null || echo "No libs found"
             
             # Determine Python version range
             cd "pkg/${output_name}"
-            PY_VERSIONS=$(ls psycounvdb/*.so psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cpython-([0-9]+).*/\1/' | sort -n | uniq)
+            PY_VERSIONS=$(ls psycounvdb/*.so 2>/dev/null | sed -E 's/.*cpython-([0-9]+).*/\1/' | sort -n | uniq)
             PY_MIN=$(echo "$PY_VERSIONS" | head -1)
             PY_MAX=$(echo "$PY_VERSIONS" | tail -1)
             PY_MIN_FMT="${PY_MIN:0:1}.${PY_MIN:1}"
@@ -410,7 +417,7 @@ jobs:
             
             # Create zip
             ZIP_NAME="psycounvdb-${VERSION}-${output_name}-python${PY_MIN_FMT}~${PY_MAX_FMT}.zip"
-            zip -r "../../dist/${ZIP_NAME}" psycounvdb psycounvdb_binary.libs
+            zip -r "../../dist/${ZIP_NAME}" psycounvdb psycounvdb.libs
             cd ../..
             
             echo "Created: dist/${ZIP_NAME}"
@@ -423,14 +430,13 @@ jobs:
             mkdir -p "pkg/windows-amd64/psycounvdb"
             mkdir -p "pkg/windows-amd64/psycounvdb.libs"
             
-            # Extract wheels (no DLLs since we skipped delvewheel)
+            # Extract wheels
             for whl in artifacts/windows-amd64-*/*.whl; do
               echo "Extracting: $whl"
               unzip -o -q "$whl" -d "tmp_extract"
               
-              # Copy .pyd files to psycounvdb/
+              # Copy .pyd files
               find tmp_extract -name "*.pyd" -type f 2>/dev/null | while read f; do
-                echo "Copying PYD: $f"
                 cp "$f" "pkg/windows-amd64/psycounvdb/"
               done
               
@@ -444,39 +450,15 @@ jobs:
               rm -rf tmp_extract
             done
             
-            # Copy DLLs from vcpkg artifact (shared by all Python versions)
-            echo "Copying DLLs from vcpkg artifact..."
-            echo "Available artifacts:"
-            ls -la artifacts/
-            
+            # Copy DLLs from vcpkg artifact
             if [ -d "artifacts/windows-vcpkg-dlls" ]; then
-              echo "Found windows-vcpkg-dlls directory:"
-              ls -la artifacts/windows-vcpkg-dlls/
-              
-              # Copy all DLLs
               find artifacts/windows-vcpkg-dlls -name "*.dll" -type f | while read f; do
-                basename=$(basename "$f")
-                echo "Copying DLL: $basename"
                 cp "$f" "pkg/windows-amd64/psycounvdb.libs/"
               done
-            else
-              echo "ERROR: vcpkg DLLs artifact not found!"
-              exit 1
             fi
             
-            echo ""
-            echo "Files in pkg/windows-amd64/psycounvdb/:"
-            ls -la "pkg/windows-amd64/psycounvdb/"
-            echo ""
-            echo "Files in pkg/windows-amd64/psycounvdb.libs/:"
-            ls -la "pkg/windows-amd64/psycounvdb.libs/" 2>/dev/null || echo "No DLLs found"
-            
-            # Count files
-            PYD_COUNT=$(find pkg/windows-amd64/psycounvdb -name "*.pyd" 2>/dev/null | wc -l)
-            DLL_COUNT=$(find pkg/windows-amd64/psycounvdb.libs -name "*.dll" 2>/dev/null | wc -l)
-            echo ""
-            echo "Total PYD count: $PYD_COUNT (should be 6)"
-            echo "Total DLL count: $DLL_COUNT"
+            echo "Files in psycounvdb.libs:"
+            ls -la "pkg/windows-amd64/psycounvdb.libs/"
             
             cd "pkg/windows-amd64"
             PY_VERSIONS=$(ls psycounvdb/*.pyd 2>/dev/null | sed -E 's/.*cp([0-9]+).*/\1/' | sort -n | uniq)
@@ -494,15 +476,10 @@ jobs:
           }
           
           # Package each platform
-          # manylinux_2_28 (CentOS 8+) - default
           package_platform "linux-x86_64" "linux-x86_64" "linux-x86_64"
           package_platform "linux-aarch64" "linux-aarch64" "linux-aarch64"
-          
-          # manylinux2014 (CentOS 7)
-          package_platform "linux-x86_64-legacy" "linux-x86_64-centos7" "linux-x86_64"
-          package_platform "linux-aarch64-legacy" "linux-aarch64-centos7" "linux-aarch64"
-          
-          # Windows
+          package_platform "linux-x86_64-legacy" "linux-x86_64-centos7" "linux-x86_64-centos7"
+          package_platform "linux-aarch64-legacy" "linux-aarch64-centos7" "linux-aarch64-centos7"
           package_windows
           
           echo ""

@@ -54,10 +54,8 @@ def _add_lib_path():
     """Add the bundled library path for DLL/shared library loading."""
     _pkg_dir = _os.path.dirname(__file__)
     
-    # Try different possible lib directory names
-    # Windows: psycounvdb.libs (from vcpkg DLLs)
-    # Linux: psycounvdb_binary.libs (from psycopg2-binary)
-    _lib_dirnames = ['psycounvdb.libs', 'psycounvdb_binary.libs']
+    # Both Linux and Windows use psycounvdb.libs
+    _lib_dirnames = ['psycounvdb.libs']
     
     for _lib_dirname in _lib_dirnames:
         _libs_dir = _os.path.join(_pkg_dir, '..', _lib_dirname)
@@ -74,7 +72,8 @@ def _add_lib_path():
                 _path = _os.environ.get('PATH', '')
                 if _libs_dir not in _path:
                     _os.environ['PATH'] = _libs_dir + _os.pathsep + _path
-            # Don't break - add all lib directories that exist
+            # Note: On Linux, LD_LIBRARY_PATH cannot be set after process starts.
+            # RPATH in .so files is set to $ORIGIN/../psycounvdb.libs
 
 _add_lib_path()
 del _add_lib_path

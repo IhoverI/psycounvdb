@@ -8,7 +8,7 @@
 # import with errors such as "ELF load command address/offset not properly
 # aligned".
 #
-# System libraries are already pretty stripped. _psycopg2.so goes around
+# System libraries are already pretty stripped. _psycounvdb.so goes around
 # 1.6M -> 300K (python 3.8, x86_64)
 #
 # This script is designed to run on a wheel archive before auditwheel.
@@ -35,8 +35,8 @@ find . -name \*.so | xargs ls -l
 
 # On Debian, print the package versions libraries come from
 echo "
-Dependencies versions of '_psycopg.so' library:"
-"${dir}/print_so_versions.sh" "$(find . -name \*_psycopg\*.so)"
+Dependencies versions of '_psycounvdb.so' library:"
+"${dir}/print_so_versions.sh" "$(find . -name \*_psycounvdb\*.so)"
 
 find . -name \*.so -exec strip "$@" {} \;
 

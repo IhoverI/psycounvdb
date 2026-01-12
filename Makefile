@@ -27,8 +27,8 @@ SOURCE_TESTS := $(wildcard tests/*.py)
 SOURCE_DOC := $(wildcard doc/src/*.rst)
 SOURCE := $(SOURCE_C) $(SOURCE_PY) $(SOURCE_TESTS) $(SOURCE_DOC)
 
-PACKAGE := $(BUILD_DIR)/psycopg2
-PLATLIB := $(PACKAGE)/_psycopg.so
+PACKAGE := $(BUILD_DIR)/psycounvdb
+PLATLIB := $(PACKAGE)/_psycounvdb.so
 PURELIB := $(patsubst lib/%,$(PACKAGE)/%,$(SOURCE_PY))
 
 BUILD_OPT := --build-lib=$(BUILD_DIR)
@@ -40,7 +40,7 @@ ifdef PG_CONFIG
 endif
 
 VERSION := $(shell grep PSYCOPG_VERSION setup.py | head -1 | sed -e "s/.*'\(.*\)'/\1/")
-SDIST := dist/psycopg2-$(VERSION).tar.gz
+SDIST := dist/psycounvdb-$(VERSION).tar.gz
 
 .PHONY: check clean
 
