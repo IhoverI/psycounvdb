@@ -307,27 +307,28 @@ psycounvdb.libs/               # Windows 依赖库
 
 ## 常见问题
 
-### Linux: 找不到共享库
+### Linux/Windows: 找不到共享库或 DLL
 
-确保 `psycounvdb.libs` 目录与 `psycounvdb` 在同一位置（都在 site-packages 下）。
+正常情况下，只要 `psycounvdb` 和 `psycounvdb.libs` 目录位于同一父目录（如 site-packages），库会**自动加载**，无需手动配置。
 
-如果仍有问题，可以手动设置 `LD_LIBRARY_PATH`：
+**如果遇到问题，请检查：**
 
+1. 确保 `psycounvdb.libs` 目录与 `psycounvdb` 在同一位置（都在 site-packages 下）
+2. 确保文件完整，没有丢失
+
+**极少数特殊情况下的备用方案：**
+
+Linux:
 ```bash
 export LD_LIBRARY_PATH=/path/to/site-packages/psycounvdb.libs:$LD_LIBRARY_PATH
 ```
 
-### Windows: DLL 加载失败
-
-确保 `psycounvdb.libs` 目录中的 DLL 可被找到：
-
+Windows:
 ```python
 import os
-os.add_dll_directory(r"C:\path\to\psycounvdb.libs")
+os.add_dll_directory(r"C:\path\to\site-packages\psycounvdb.libs")
 import psycounvdb
 ```
-
-或将 DLL 目录添加到系统 PATH。
 
 ### 如何检查 glibc 版本
 
