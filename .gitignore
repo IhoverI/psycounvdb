@@ -3,8 +3,12 @@ MANIFEST
 *.userprefs
 *.pidb
 *.pyc
+*.pyo
+*.so
+*.pyd
 *.sw[po]
 *.egg-info/
+*.egg
 dist/*
 /build
 env
@@ -16,3 +20,12 @@ env?
 /wheels
 /packages
 /wheelhouse
+__pycache__/
+
+# Virtual environments
+venv/
+test_venv/
+.venv/
+
+# Development test directory (copy of lib/)
+/psycounvdb/

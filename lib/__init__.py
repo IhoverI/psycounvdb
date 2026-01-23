@@ -52,7 +52,7 @@ import sys as _sys
 
 def _add_lib_path():
     """Add the bundled library path for DLL/shared library loading."""
-    _pkg_dir = _os.path.dirname(__file__)
+    _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
     
     # Both Linux and Windows use psycounvdb.libs
     _lib_dirnames = ['psycounvdb.libs']

@@ -55,9 +55,17 @@ rm -rf "${WORK_DIR}/package/psycopg2" 2>/dev/null || true
 rm -rf "${WORK_DIR}/package/psycopg2_binary.libs" 2>/dev/null || true
 rm -rf "${WORK_DIR}/package/"*.dist-info 2>/dev/null || true
 
-# 创建简单的 __init__.py 如果不存在
+# 确保 __init__.py 存在（从 lib/ 复制，包含 DLL 路径处理代码）
 if [ ! -f "${WORK_DIR}/package/psycounvdb/__init__.py" ]; then
-    echo "from psycounvdb._psycounvdb import *" > "${WORK_DIR}/package/psycounvdb/__init__.py"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+    if [ -f "${PROJECT_DIR}/lib/__init__.py" ]; then
+        echo "复制 __init__.py 从 lib/ 目录"
+        cp "${PROJECT_DIR}/lib/__init__.py" "${WORK_DIR}/package/psycounvdb/__init__.py"
+    else
+        echo "错误: 找不到 lib/__init__.py，wheel 中也没有 __init__.py"
+        exit 1
+    fi
 fi
 
 # 列出包内容
